@@ -1,0 +1,6 @@
+# 项目排除路径
+/fmcy-data-validation/target/
+/fmcy-mybatis-plus-util/target/
+/fmcy-public-util/target/
+/fmcy-server-standard/target/
+/fmcy-spring-entity-builder/target/
