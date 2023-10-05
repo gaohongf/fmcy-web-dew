@@ -177,9 +177,9 @@ public class ClassBuilderUtil {
             }
         } else if (type.isAnnotation()) {
             try {
-                AnnotationsAnnotation annotation = jsonMapper.readValue(value, AnnotationsAnnotation.class);
+                AnnotationsProxy annotation = jsonMapper.readValue(value, AnnotationsProxy.class);
                 AnnotationMemberValue annotationMemberValue = new AnnotationMemberValue(constPool);
-                annotationMemberValue.setValue(analysisAnnotations(annotation, constPool));
+                annotationMemberValue.setValue(analysisAnnotations(annotation.getProxy(), constPool));
                 memberValue = annotationMemberValue;
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(e);

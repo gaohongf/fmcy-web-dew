@@ -18,8 +18,8 @@ public abstract class BaseRestController<T> {
     private XService<T> xService;
     private Class<T> resultClass;
     @SuppressWarnings("unchecked")
-    private final Class<? extends BaseRestController<T>> controllerClass =
-            (Class<? extends BaseRestController<T>>) this.getClass();
+    private final Class<? extends BaseRestController<T>> controllerClass = (Class<? extends BaseRestController<T>>) this.getClass();
+
     @Autowired(required = false)
     public void setService(XService<T> service) {
         this.xService = service;
@@ -43,19 +43,6 @@ public abstract class BaseRestController<T> {
         );
     }
 
-    @SuppressWarnings("unchecked")
-    protected Result<?> addOne(Serializable insert) {
-        T t;
-        if (getService().resultclass().equals(insert.getClass())) {
-            t = (T) insert;
-        } else {
-            DemandHandler<Serializable, T> mapper = (DemandHandler<Serializable, T>) E.getMapper(insert.getClass(), resultClass);
-            t = mapper.wiseMapping(insert);
-        }
-        boolean add = xService.add(t);
-        return add ? Result.success(null, Message.success("添加成功")) :
-                Result.error(ServerErrorResultCode.ADD_FAIL);
-    }
 
     @SuppressWarnings("unchecked")
     protected Result<?> addList(List<Serializable> list) {
@@ -91,16 +78,21 @@ public abstract class BaseRestController<T> {
 
     @SuppressWarnings("unchecked")
     protected Result<?> updateById(Serializable updater) {
-        T t;
-        if (getService().resultclass().equals(updater.getClass())) {
-            t = (T) updater;
-        } else {
-            DemandHandler<Serializable, T> mapper = (DemandHandler<Serializable, T>) E.getMapper(updater.getClass(), resultClass);
-            t = mapper.wiseMapping(updater);
-        }
-        return Result.success(null, getService().updateById(t)
-                ? Message.success("修改成功")
-                : Message.error("修改失败")
-        );
+        Class<? extends Serializable> updaterClass = updater.getClass();
+        T t = getService().resultclass().equals(updaterClass) ? (T) updater : ((DemandHandler<Serializable, T>) E.getMapper(updaterClass, resultClass)).wiseMapping(updater);
+        return getService().updateById(t) ? Result.success(null, Message.success("修改成功")) : Result.error(ServerErrorResultCode.UPDATE_FAIL);
+    }
+
+
+    @SuppressWarnings("unchecked")
+    protected Result<?> addOne(Serializable insert) {
+        Class<? extends Serializable> insertClass = insert.getClass();
+        T t = getService().resultclass().equals(insertClass) ? (T) insert : ((DemandHandler<Serializable, T>) E.getMapper(insertClass, resultClass)).wiseMapping(insert);
+        return xService.add(t) ? Result.success(null, Message.success("添加成功")) :
+                Result.error(ServerErrorResultCode.ADD_FAIL);
+    }
+
+    protected Result<?> deleteById(Serializable id) {
+        return xService.deleteById(id) ? Result.success(null, Message.success("删除成功")) : Result.error(ServerErrorResultCode.DELETE_FAIL);
     }
 }

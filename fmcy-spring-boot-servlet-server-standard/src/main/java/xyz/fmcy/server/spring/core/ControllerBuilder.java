@@ -19,6 +19,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+
 import static xyz.fmcy.server.spring.abandon.FunctionSetGenerator.ANNOTATION_NEW_METHOD_INFO_MAP;
 
 @Configuration
@@ -32,10 +33,11 @@ public class ControllerBuilder {
     }
 
     /**
-     *  控制加载顺序
+     * 控制加载顺序
      */
     public final static List<Class<? extends java.lang.annotation.Annotation>> LOAD_METHOD_ORDER = new Vector<>();
-    static  {
+
+    static {
         LOAD_METHOD_ORDER.addAll(List.of(
                 Abandon.class,
                 AddGenerator.class,
@@ -45,11 +47,12 @@ public class ControllerBuilder {
                 FindById.class,
                 FindList.class,
                 FindPage.class,
-                UpdateById.class
+                UpdateById.class,
+                DeleteById.class
         ));
     }
 
-
+    @SuppressWarnings("all")
     @PostConstruct
     public void loadController() {
         Map<String, BaseRestController> beans =
@@ -110,7 +113,6 @@ public class ControllerBuilder {
                 throw new RuntimeException(e);
             }
         });
-        ctClass.debugWriteFile("D:\\Desktop\\javaassist");
         return (Class<? extends BaseRestController<?>>) ctClass.toClass();
     }
 }

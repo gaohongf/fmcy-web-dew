@@ -1,6 +1,5 @@
 package xyz.fmcy.server.spring.abandon;
 
-import javassist.*;
 import org.springframework.web.bind.annotation.RequestBody;
 import xyz.fmcy.entity.E;
 import xyz.fmcy.server.database.PageSeed;
@@ -8,6 +7,7 @@ import xyz.fmcy.server.database.QueryAttribute;
 import xyz.fmcy.server.database.QueryConfiguration;
 import xyz.fmcy.server.database.QuerySeed;
 import xyz.fmcy.server.spring.annotation.*;
+import xyz.fmcy.server.spring.annotation.proxy.AnnotationProxy;
 import xyz.fmcy.server.spring.core.*;
 import xyz.fmcy.server.standard.Result;
 import xyz.fmcy.util.entity.Demands;
@@ -21,9 +21,10 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-public class FunctionSetGenerator {
+@SuppressWarnings("all")
+public final class FunctionSetGenerator {
     private static final List<Class<?>> QUERY_PROXY_CACHE = new Vector<>();
-    public final static Map<Class<? extends java.lang.annotation.Annotation>, AnnotationToMethod> ANNOTATION_NEW_METHOD_INFO_MAP = new ConcurrentHashMap<>();
+    public final static Map<Class<? extends Annotation>, AnnotationToMethod> ANNOTATION_NEW_METHOD_INFO_MAP = new ConcurrentHashMap<>();
 
     static {
         {
@@ -78,7 +79,7 @@ public class FunctionSetGenerator {
                 Class<? extends QueryConfiguration> query = generator.query();
                 boolean setAllQueryProxy = QueryProxy.class.equals(query);
                 if (setAllQueryProxy) {
-                    buildQueryProxy(clazz);
+                    buildQueryProxyMapper(clazz);
                 }
                 {
                     FindGenerator.EnableFindById enabled = generator.enableFindById();
@@ -149,11 +150,12 @@ public class FunctionSetGenerator {
                     if (enabled.value()) {
                         AddList addList = enabled.annotation();
                         map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(AddList.class).build(clazz, declaring,
-                                        Serializable.class.equals(addList.insertClass()) && setInsertClass
-                                                ? AnnotationProxy.proxy(addList).modify("insertClass", insertClass).get()
-                                                : addList
-                                )
-                        );
+                                Serializable.class.equals(addList.insertClass()) && setInsertClass
+                                        ? AnnotationProxy.proxy(addList).modify("insertClass", insertClass).get()
+                                        : Serializable.class.equals(addList.insertClass())
+                                        ? AnnotationProxy.proxy(addList).modify("insertClass", clazz).get()
+                                        : addList
+                        ));
                     }
                 }
                 {
@@ -161,11 +163,12 @@ public class FunctionSetGenerator {
                     if (enabled.value()) {
                         AddOne addOne = enabled.annotation();
                         map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(AddOne.class).build(clazz, declaring,
-                                        Serializable.class.equals(addOne.insertClass()) && setInsertClass
-                                                ? AnnotationProxy.proxy(addOne).modify("insertClass", insertClass).get()
-                                                : addOne
-                                )
-                        );
+                                Serializable.class.equals(addOne.insertClass()) && setInsertClass
+                                        ? AnnotationProxy.proxy(addOne).modify("insertClass", insertClass).get()
+                                        : Serializable.class.equals(addOne.insertClass())
+                                        ? AnnotationProxy.proxy(addOne).modify("insertClass", clazz).get()
+                                        : addOne
+                        ));
                     }
                 }
                 return new HashMap<>(map);
@@ -187,16 +190,33 @@ public class FunctionSetGenerator {
             });
         }
         {
+            ANNOTATION_NEW_METHOD_INFO_MAP.put(DeleteById.class, (clazz, declaring, annotation) -> {
+                DeleteById deleteById = (DeleteById) annotation;
+                return new HashMap<>(Map.of(DeleteById.class, new NewMethodInfo(declaring, "deleteById", Result.class,
+                        List.of(new MethodParameterInfo(deleteById.idClass())), """
+                        {
+                            return super.deleteById((java.io.Serializable) $1);
+                        }
+                        """)
+                        .addMethodAnnotationsAttribute(deleteById.mapping())
+                        .addMethodAnnotationsAttribute(deleteById.otherMethodAnnotations())
+                        .addParameterAnnotationsAttribute(deleteById.otherParamAnnotations())
+                        .addParameterAnnotationsAttribute(new Annotation[][]{{deleteById.pathVariable()}})));
+            });
+        }
+        {
             ANNOTATION_NEW_METHOD_INFO_MAP.put(Abandon.class, (clazz, declaring, annotation) -> {
                 Map<Class<? extends Annotation>, NewMethodInfo> map = new HashMap<>();
-                map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(AddGenerator.class).build(clazz, declaring, annotation));
-                map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(FindGenerator.class).build(clazz, declaring, annotation));
+                map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(AddGenerator.class).build(clazz, declaring, AnnotationProxy.proxy(AddGenerator.class).get()));
+                map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(FindGenerator.class).build(clazz, declaring, AnnotationProxy.proxy(FindGenerator.class).get()));
+                map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(DeleteById.class).build(clazz, declaring, AnnotationProxy.proxy(DeleteById.class).get()));
+
+                map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(UpdateById.class).build(clazz, declaring, AnnotationProxy.proxy(UpdateById.class).modify("updaterClass", clazz).get()));
                 return map;
             });
         }
     }
 
-    @SuppressWarnings("unchecked")
     public static <E extends Annotation> void readGeneratorChild(
             Annotation annotation,
             Consumer<E> annotationConsumer
@@ -212,8 +232,8 @@ public class FunctionSetGenerator {
         }
     }
 
-    public static Class<? extends QueryConfiguration> buildQueryProxy(Class<?> clazz) {
-        if (QUERY_PROXY_CACHE.contains(clazz)) return QueryProxy.class;
+    public static void buildQueryProxyMapper(Class<?> clazz) {
+        if (QUERY_PROXY_CACHE.contains(clazz)) return;
         EntityMapper<QueryProxy, ?> mapper = EntityMapper.getMapper(QueryProxy.class, clazz);
         Arrays.stream(clazz.getDeclaredMethods())
                 .filter(method -> method.getName().length() > 3)
@@ -236,7 +256,6 @@ public class FunctionSetGenerator {
                 });
         E.addMapper(GroupEntityMapper.DEF_GROUP, mapper);
         QUERY_PROXY_CACHE.add(clazz);
-        return QueryProxy.class;
     }
 
 }

@@ -1,5 +1,7 @@
 package xyz.fmcy.server.spring.core;
 
+import org.intellij.lang.annotations.Language;
+
 import java.lang.annotation.*;
 
 @Retention(RetentionPolicy.RUNTIME)
@@ -12,6 +14,7 @@ public @interface Annotations {
     @interface Field {
         String name();
 
+        @Language(value = "json")
         String value();
     }
 }

@@ -1,5 +1,6 @@
 package xyz.fmcy.server.spring.annotation;
 
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import xyz.fmcy.server.spring.core.Annotations;
@@ -13,10 +14,12 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-public @interface AddList {
-    Class<? extends Serializable> insertClass();
+public @interface DeleteById {
+    Class<? extends Serializable> idClass() default Integer.class;
 
-    RequestMapping mapping() default @RequestMapping(path = "/add/rows", method = RequestMethod.POST);
+    RequestMapping mapping() default @RequestMapping(path = "/delete/{id}", method = RequestMethod.DELETE);
+
+    PathVariable pathVariable() default @PathVariable("id");
 
     Annotations[] otherMethodAnnotations() default {};
 
