@@ -22,31 +22,31 @@ public interface XService<D> {
         return findById(id, columns());
     }
 
-    D findById(Serializable id, String... fields);
+    D findById(Serializable id, String... columns);
 
     default D find(D entity) {
         return find(entity, columns());
     }
 
-    D find(D entity, String... fields);
+    D find(D entity, String... columns);
 
     default VPage<D> findPage(Long current, Long size, D template, QueryConfigure[] configures) {
         return findPage(current, size, template, configures, columns());
     }
 
-    VPage<D> findPage(Long current, Long size, D template, QueryConfigure[] configures, String... fields);
+    VPage<D> findPage(Long current, Long size, D template, QueryConfigure[] configures, String... columns);
 
     default <C extends QueryConfiguration & Serializable> VPage<D> findPage(PageSeed<C> pageSeed) {
         return findPage(pageSeed, columns());
     }
 
-    <C extends QueryConfiguration & Serializable> VPage<D> findPage(PageSeed<C> pageSeed, String... fields);
+    <C extends QueryConfiguration & Serializable> VPage<D> findPage(PageSeed<C> pageSeed, String... columns);
 
     default <C extends QueryConfiguration & Serializable> List<D> findList(QuerySeed<C> querySeed) {
         return findList(querySeed, columns());
     }
 
-    <C extends QueryConfiguration & Serializable> List<D> findList(QuerySeed<C> querySeed, String... fields);
+    <C extends QueryConfiguration & Serializable> List<D> findList(QuerySeed<C> querySeed, String... columns);
 
     default Long count() {
         return count(null);
@@ -55,13 +55,13 @@ public interface XService<D> {
     default Long count(D template) {
         return count(template, columns());
     }
-    Long count(D template, String... fields);
+    Long count(D template, String... columns);
 
     default List<D> findList(D template, QueryConfigure... configures) {
         return findList(template, configures, columns());
     }
 
-    List<D> findList(D template, QueryConfigure[] configures, String... fields);
+    List<D> findList(D template, QueryConfigure[] configures, String... columns);
 
     boolean add(D entity);
 
@@ -69,7 +69,7 @@ public interface XService<D> {
         return findListByIds(ids, columns());
     }
 
-    List<D> findListByIds(Serializable[] ids, String... fields);
+    List<D> findListByIds(Serializable[] ids, String... columns);
 
     boolean addAll(Collection<D> collection, boolean cautious);
 

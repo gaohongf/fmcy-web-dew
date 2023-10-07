@@ -115,75 +115,71 @@ public abstract class XServiceImpl<M extends BaseMapper<P>, P, D> implements XSe
         return columns(s -> true);
     }
 
-    private String[] fieldsToColumns(String... fields) {
-        return Arrays.stream(fields)
-                .map(field -> {
-                    ColumnCache columnCache = getTableColumnMap().get(LambdaUtils.formatKey(field));
-                    return columnCache != null ? columnCache.getColumn() : field;
-                })
-                .toArray(String[]::new);
+    private String[] columnsToColumnSelects(String... columns) {
+        Map<String, String> columnsColumnSelectMap = getTableColumnMap().values().stream().collect(Collectors.toMap(ColumnCache::getColumn, ColumnCache::getColumnSelect));
+        return Arrays.stream(columns).map(columnsColumnSelectMap::get).toArray(String[]::new);
     }
 
     @Override
-    public D findById(Serializable id, String... fields) {
+    public D findById(Serializable id, String... columns) {
         QueryWrapper<P> query = Wrappers.query();
         query.eq(getTableInfo().getKeyColumn(), id);
-        query.select(fieldsToColumns(fields));
+        query.select(columnsToColumnSelects(columns));
         return getDemandHandlerPToD().wiseMapping(getBaseMapper().selectOne(query));
     }
 
     @Override
-    public D find(D entity, String... fields) {
+    public D find(D entity, String... columns) {
         QueryWrapper<P> wrapper = loadWrapper(Wrappers.query(), entity);
-        wrapper.select(fieldsToColumns(fields));
+        wrapper.select(columnsToColumnSelects(columns));
         return getDemandHandlerPToD().wiseMapping(getBaseMapper().selectOne(wrapper));
     }
 
     @Override
-    public VPage<D> findPage(Long current, Long size, D template, QueryConfigure[] configures, String... fields) {
+    public VPage<D> findPage(Long current, Long size, D template, QueryConfigure[] configures, String... columns) {
         return PageEntityMapper.mapper(getBaseMapper()
                         .selectPage(Page.of(current, size), loadWrapper(Wrappers.query(), template, configures)
-                                .select(fieldsToColumns(fields)))
+                                .select(columnsToColumnSelects(columns)))
                 , getDemandHandlerPToD());
     }
 
     @Override
-    public <C extends QueryConfiguration & Serializable> VPage<D> findPage(PageSeed<C> pageSeed, String... fields) {
+    public <C extends QueryConfiguration & Serializable> VPage<D> findPage(PageSeed<C> pageSeed, String... columns) {
         AtomicReference<VPage<D>> page = new AtomicReference<>();
         Long current = pageSeed.getCurrent();
         Long size = pageSeed.getSize();
         readQuerySend(pageSeed, (template, configures) -> page
                 .set(configures == null
-                        ? findPage(current, size, template, new QueryConfigure[0], fields)
-                        : findPage(current, size, template, configures, fields)
+                        ? findPage(current, size, template, new QueryConfigure[0], columns)
+                        : findPage(current, size, template, configures, columns)
                 )
         );
         return page.get();
     }
 
     @Override
-    public <C extends QueryConfiguration & Serializable> List<D> findList(QuerySeed<C> querySeed, String... fields) {
+    public <C extends QueryConfiguration & Serializable> List<D> findList(QuerySeed<C> querySeed, String... columns) {
         AtomicReference<List<D>> list = new AtomicReference<>();
         readQuerySend(querySeed, (template, configures) -> list
                 .set(configures == null
-                        ? findList(template, new QueryConfigure[0], fields)
-                        : findList(template, configures, fields)
+                        ? findList(template, new QueryConfigure[0], columns)
+                        : findList(template, configures, columns)
                 )
         );
         return list.get();
     }
 
     @Override
-    public Long count(D template, String... fields) {
+    public Long count(D template, String... columns) {
         QueryWrapper<P> wrapper = loadWrapper(Wrappers.query(), template);
-        wrapper.select(fieldsToColumns(fields));
+        wrapper.select(columnsToColumnSelects(columns));
         return getBaseMapper().selectCount(wrapper);
     }
 
     @Override
-    public List<D> findList(D template, QueryConfigure[] configures, String... fields) {
+    public List<D> findList(D template, QueryConfigure[] configures, String... columns) {
         return getDemandHandlerPToD().mapAll(
-                getBaseMapper().selectList(loadWrapper(Wrappers.query(), template, configures).select(fieldsToColumns(fields)))
+                getBaseMapper().selectList(loadWrapper(Wrappers.query(), template, configures).select(columnsToColumnSelects(columns)))
         );
     }
 
@@ -301,11 +297,11 @@ public abstract class XServiceImpl<M extends BaseMapper<P>, P, D> implements XSe
     }
 
     @Override
-    public List<D> findListByIds(Serializable[] ids, String... fields) {
+    public List<D> findListByIds(Serializable[] ids, String... columns) {
         return Optional.ofNullable(ids)
                 .filter(i -> i.length != 0)
                 .map(i -> getBaseMapper().selectList(Wrappers.<P>query()
-                        .select(fieldsToColumns(fields))
+                        .select(columnsToColumnSelects(columns))
                         .in(getTableInfo().getKeyColumn(), Arrays.stream(ids).toList())
                 )).map(getDemandHandlerPToD()::mapAll)
                 .orElseGet(ArrayList::new);
