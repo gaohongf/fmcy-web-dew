@@ -70,5 +70,9 @@ public class Message {
     public static Message success(String message) {
         return new Message(MessageType.SUCCESS, message);
     }
+
+    public static Message success(ResultCode resultCode) {
+        return new Message(MessageType.SUCCESS, resultCode.getCodeMessage());
+    }
 }
 

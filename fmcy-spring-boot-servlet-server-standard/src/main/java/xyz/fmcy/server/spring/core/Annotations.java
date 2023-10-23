@@ -13,7 +13,6 @@ public @interface Annotations {
 
     @interface Field {
         String name();
-
         @Language(value = "json")
         String value();
     }

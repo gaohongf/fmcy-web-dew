@@ -4,7 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 import xyz.fmcy.entity.E;
 import xyz.fmcy.server.database.*;
-import xyz.fmcy.server.spring.core.ServerErrorResultCode;
+import xyz.fmcy.server.spring.core.ServerResultCode;
 import xyz.fmcy.server.standard.Message;
 import xyz.fmcy.server.standard.Result;
 import xyz.fmcy.util.entity.DemandHandler;
@@ -57,8 +57,8 @@ public abstract class BaseRestController<T> {
             }
             add = xService.addAll(tList);
         }
-        return add ? Result.success(null, Message.success("添加成功"))
-                : Result.error(ServerErrorResultCode.ADD_FAIL);
+        return add ? Result.success(null, Message.success(ServerResultCode.ADD_SUCCESS))
+                : Result.error(ServerResultCode.ADD_FAIL);
     }
 
 
@@ -80,7 +80,7 @@ public abstract class BaseRestController<T> {
     protected Result<?> updateById(Serializable updater) {
         Class<? extends Serializable> updaterClass = updater.getClass();
         T t = getService().resultclass().equals(updaterClass) ? (T) updater : ((DemandHandler<Serializable, T>) E.getMapper(updaterClass, resultClass)).wiseMapping(updater);
-        return getService().updateById(t) ? Result.success(null, Message.success("修改成功")) : Result.error(ServerErrorResultCode.UPDATE_FAIL);
+        return getService().updateById(t) ? Result.success(null, Message.success(ServerResultCode.UPDATE_SUCCESS)) : Result.error(ServerResultCode.UPDATE_FAIL);
     }
 
 
@@ -88,11 +88,11 @@ public abstract class BaseRestController<T> {
     protected Result<?> addOne(Serializable insert) {
         Class<? extends Serializable> insertClass = insert.getClass();
         T t = getService().resultclass().equals(insertClass) ? (T) insert : ((DemandHandler<Serializable, T>) E.getMapper(insertClass, resultClass)).wiseMapping(insert);
-        return xService.add(t) ? Result.success(null, Message.success("添加成功")) :
-                Result.error(ServerErrorResultCode.ADD_FAIL);
+        return xService.add(t) ? Result.success(null, Message.success(ServerResultCode.ADD_SUCCESS)) :
+                Result.error(ServerResultCode.ADD_FAIL);
     }
 
     protected Result<?> deleteById(Serializable id) {
-        return xService.deleteById(id) ? Result.success(null, Message.success("删除成功")) : Result.error(ServerErrorResultCode.DELETE_FAIL);
+        return xService.deleteById(id) ? Result.success(null, Message.success(ServerResultCode.DELETE_SUCCESS)) : Result.error(ServerResultCode.DELETE_FAIL);
     }
 }

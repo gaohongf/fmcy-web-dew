@@ -25,7 +25,6 @@ import java.util.function.Consumer;
 public final class FunctionSetGenerator {
     private static final List<Class<?>> QUERY_PROXY_CACHE = new Vector<>();
     public final static Map<Class<? extends Annotation>, AnnotationToMethod> ANNOTATION_NEW_METHOD_INFO_MAP = new ConcurrentHashMap<>();
-
     static {
         {
             ANNOTATION_NEW_METHOD_INFO_MAP.put(FindById.class, (clazz, declaring, annotation) -> {
@@ -45,6 +44,10 @@ public final class FunctionSetGenerator {
         {
             ANNOTATION_NEW_METHOD_INFO_MAP.put(FindList.class, (clazz, declaring, annotation) -> {
                 FindList findList = (FindList) annotation;
+                Class<? extends QueryConfiguration> query = findList.query();
+                if (QueryProxy.class.equals(query)) {
+                    buildQueryProxyMapper(clazz);
+                }
                 return new HashMap<>(Map.of(FindList.class, new NewMethodInfo(declaring, "findList", Result.class,
                         List.of(new MethodParameterInfo(QuerySeed.class, List.of(findList.query()))), """
                         {
@@ -60,8 +63,12 @@ public final class FunctionSetGenerator {
         {
             ANNOTATION_NEW_METHOD_INFO_MAP.put(FindPage.class, (clazz, declaring, annotation) -> {
                 FindPage findList = (FindPage) annotation;
+                Class<? extends QueryConfiguration> query = findList.query();
+                if (QueryProxy.class.equals(query)) {
+                    buildQueryProxyMapper(clazz);
+                }
                 return new HashMap<>(Map.of(FindPage.class, new NewMethodInfo(declaring, "findPage", Result.class,
-                        List.of(new MethodParameterInfo(PageSeed.class, List.of(findList.query()))), """
+                        List.of(new MethodParameterInfo(PageSeed.class, List.of(query))), """
                         {
                             return findPage($1, %s.class);
                         }
@@ -73,37 +80,45 @@ public final class FunctionSetGenerator {
             });
         }
         {
-            ANNOTATION_NEW_METHOD_INFO_MAP.put(FindGenerator.class, (clazz, declaring, annotation) -> {
+            ANNOTATION_NEW_METHOD_INFO_MAP.put(QueryGenerator.class, (clazz, declaring, annotation) -> {
                 Map<Class<? extends Annotation>, NewMethodInfo> map = new HashMap<>();
-                FindGenerator generator = (FindGenerator) annotation;
+                QueryGenerator generator = (QueryGenerator) annotation;
                 Class<? extends QueryConfiguration> query = generator.query();
-                boolean setAllQueryProxy = QueryProxy.class.equals(query);
-                if (setAllQueryProxy) {
-                    buildQueryProxyMapper(clazz);
-                }
+                Class<?> publicViewType = generator.viewType();
                 {
-                    FindGenerator.EnableFindById enabled = generator.enableFindById();
+                    QueryGenerator.EnableFindById enabled = generator.enableFindById();
                     if (enabled.value()) {
                         FindById findById = enabled.annotation();
-                        map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(FindById.class).build(clazz, declaring, findById));
+                        Class<?> viewType = findById.viewType();
+                        map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(FindById.class)
+                                .build(clazz, declaring, Object.class.equals(viewType)
+                                        ? AnnotationProxy.proxy(findById).modify("viewType", publicViewType).get()
+                                        : findById)
+                        );
                     }
                 }
                 {
-                    FindGenerator.EnableList enabled = generator.enableList();
+                    QueryGenerator.EnableList enabled = generator.enableList();
                     if (enabled.value()) {
                         FindList findList = enabled.annotation();
-                        map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(FindList.class).build(clazz, declaring, (
-                                QueryProxy.class.equals(findList.query()) && !setAllQueryProxy
-                        ) ? AnnotationProxy.proxy(findList).modify("query", query).get() : findList));
+                        Class<?> viewType = findList.viewType();
+                        Class<? extends QueryConfiguration> findListQuery = findList.query();
+                        map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(FindList.class).build(clazz, declaring, AnnotationProxy.proxy(findList)
+                                .modify("query", QueryProxy.class.equals(findListQuery) ? query : findListQuery)
+                                .modify("viewType", Object.class.equals(viewType) ? publicViewType : viewType).get()
+                        ));
                     }
                 }
                 {
-                    FindGenerator.EnablePage enabled = generator.enablePage();
+                    QueryGenerator.EnablePage enabled = generator.enablePage();
                     if (enabled.value()) {
                         FindPage findPage = enabled.annotation();
-                        map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(FindPage.class).build(clazz, declaring, (
-                                QueryProxy.class.equals(findPage.query()) && !setAllQueryProxy
-                        ) ? AnnotationProxy.proxy(findPage).modify("query", query).get() : findPage));
+                        Class<?> viewType = findPage.viewType();
+                        Class<? extends QueryConfiguration> findPageQuery = findPage.query();
+                        map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(FindPage.class).build(clazz, declaring, AnnotationProxy.proxy(findPage)
+                                .modify("query", QueryProxy.class.equals(findPageQuery) ? query : findPageQuery)
+                                .modify("viewType", Object.class.equals(viewType) ? publicViewType : viewType).get()
+                        ));
                     }
                 }
                 return map;
@@ -112,8 +127,12 @@ public final class FunctionSetGenerator {
         {
             ANNOTATION_NEW_METHOD_INFO_MAP.put(AddOne.class, (clazz, declaring, annotation) -> {
                 AddOne addOne = (AddOne) annotation;
+                Class<?> insertType = addOne.insertType();
+                if (Serializable.class.equals(insertType)){
+                    insertType = clazz;
+                }
                 return new HashMap<>(Map.of(AddOne.class, new NewMethodInfo(declaring, "addOne", Result.class,
-                        List.of(new MethodParameterInfo(addOne.insertClass())), """
+                        List.of(new MethodParameterInfo(insertType)), """
                         {
                             return super.addOne((java.io.Serializable) $1);
                         }
@@ -127,8 +146,12 @@ public final class FunctionSetGenerator {
         {
             ANNOTATION_NEW_METHOD_INFO_MAP.put(AddList.class, (clazz, declaring, annotation) -> {
                 AddList addList = (AddList) annotation;
+                Class<?> insertType = addList.insertType();
+                if (Serializable.class.equals(insertType)){
+                    insertType = clazz;
+                }
                 return new HashMap<>(Map.of(AddList.class, new NewMethodInfo(declaring, "addList", Result.class,
-                        List.of(new MethodParameterInfo(List.class, List.of(addList.insertClass()))), """
+                        List.of(new MethodParameterInfo(List.class, List.of(insertType))), """
                         {
                             return super.addList((java.util.List) $1);
                         }
@@ -143,32 +166,32 @@ public final class FunctionSetGenerator {
             ANNOTATION_NEW_METHOD_INFO_MAP.put(AddGenerator.class, (clazz, declaring, annotation) -> {
                 Map<Class<? extends Annotation>, NewMethodInfo> map = new HashMap<>();
                 AddGenerator generator = (AddGenerator) annotation;
-                Class<? extends Serializable> insertClass = generator.insertClass();
-                boolean setInsertClass = !Serializable.class.equals(insertClass);
+                Class<? extends Serializable> insertType = generator.insertType();
+                boolean setInsertClass = !Serializable.class.equals(insertType);
                 {
                     AddGenerator.EnableAddList enabled = generator.enableList();
                     if (enabled.value()) {
                         AddList addList = enabled.annotation();
-                        map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(AddList.class).build(clazz, declaring,
-                                Serializable.class.equals(addList.insertClass()) && setInsertClass
-                                        ? AnnotationProxy.proxy(addList).modify("insertClass", insertClass).get()
-                                        : Serializable.class.equals(addList.insertClass())
-                                        ? AnnotationProxy.proxy(addList).modify("insertClass", clazz).get()
-                                        : addList
-                        ));
+                        Class<? extends Serializable> AddListInsertType = addList.insertType();
+                        map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(AddList.class).build(clazz, declaring, AnnotationProxy.proxy(addList)
+                                .modify("insertType", setInsertClass && Serializable.class.equals(AddListInsertType)
+                                        ? insertType
+                                        : AddListInsertType
+                                ).get())
+                        );
                     }
                 }
                 {
                     AddGenerator.EnableAddOne enabled = generator.enableOne();
                     if (enabled.value()) {
                         AddOne addOne = enabled.annotation();
-                        map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(AddOne.class).build(clazz, declaring,
-                                Serializable.class.equals(addOne.insertClass()) && setInsertClass
-                                        ? AnnotationProxy.proxy(addOne).modify("insertClass", insertClass).get()
-                                        : Serializable.class.equals(addOne.insertClass())
-                                        ? AnnotationProxy.proxy(addOne).modify("insertClass", clazz).get()
-                                        : addOne
-                        ));
+                        Class<? extends Serializable> addOneInsertType = addOne.insertType();
+                        map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(AddOne.class).build(clazz, declaring, AnnotationProxy.proxy(addOne)
+                                .modify("insertType", setInsertClass && Serializable.class.equals(addOneInsertType)
+                                        ? insertType
+                                        : addOneInsertType
+                                ).get())
+                        );
                     }
                 }
                 return new HashMap<>(map);
@@ -177,8 +200,12 @@ public final class FunctionSetGenerator {
         {
             ANNOTATION_NEW_METHOD_INFO_MAP.put(UpdateById.class, (clazz, declaring, annotation) -> {
                 UpdateById updateById = (UpdateById) annotation;
+                Class<?> updaterClass = updateById.updaterClass();
+                if (Serializable.class.equals(updaterClass)){
+                    updaterClass = clazz;
+                }
                 return new HashMap<>(Map.of(UpdateById.class, new NewMethodInfo(declaring, "updateById", Result.class,
-                        List.of(new MethodParameterInfo(updateById.updaterClass())), """
+                        List.of(new MethodParameterInfo(updaterClass)), """
                         {
                             return super.updateById((java.io.Serializable) $1);
                         }
@@ -208,10 +235,9 @@ public final class FunctionSetGenerator {
             ANNOTATION_NEW_METHOD_INFO_MAP.put(Abandon.class, (clazz, declaring, annotation) -> {
                 Map<Class<? extends Annotation>, NewMethodInfo> map = new HashMap<>();
                 map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(AddGenerator.class).build(clazz, declaring, AnnotationProxy.proxy(AddGenerator.class).get()));
-                map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(FindGenerator.class).build(clazz, declaring, AnnotationProxy.proxy(FindGenerator.class).get()));
+                map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(QueryGenerator.class).build(clazz, declaring, AnnotationProxy.proxy(QueryGenerator.class).get()));
                 map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(DeleteById.class).build(clazz, declaring, AnnotationProxy.proxy(DeleteById.class).get()));
-
-                map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(UpdateById.class).build(clazz, declaring, AnnotationProxy.proxy(UpdateById.class).modify("updaterClass", clazz).get()));
+                map.putAll(ANNOTATION_NEW_METHOD_INFO_MAP.get(UpdateById.class).build(clazz, declaring, AnnotationProxy.proxy(UpdateById.class).get()));
                 return map;
             });
         }

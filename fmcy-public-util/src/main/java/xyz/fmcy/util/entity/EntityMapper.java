@@ -213,11 +213,7 @@ public class EntityMapper<O, T> implements GroupManager<O, T>,
      * @return 目标对象
      */
     public T wiseMapping(O o, T t, boolean auto) {
-        if (auto) {
-            autoWrite(o, t);
-        }
-        perform(o, t);
-        return t;
+        return perform(o, auto ? autoWrite(o, t) : t);
     }
 
     /**
@@ -250,10 +246,11 @@ public class EntityMapper<O, T> implements GroupManager<O, T>,
         C targets = supplier.get();
         List<Map.Entry<O, T>> entries = new ArrayList<>();
         sources.forEach(source -> {
-            if (source == null) return;
-            T t = targetBuilder.get();
-            targets.add(t);
-            entries.add(Map.entry(source, t));
+            if (source != null) {
+                T t = targetBuilder.get();
+                targets.add(t);
+                entries.add(Map.entry(source, t));
+            }
         });
         autoWrite(entries).forEach(entry -> wiseMapping(entry.getKey(), entry.getValue(), false));
         return targets;

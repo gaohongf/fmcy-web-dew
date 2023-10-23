@@ -41,7 +41,7 @@ public class ControllerBuilder {
         LOAD_METHOD_ORDER.addAll(List.of(
                 Abandon.class,
                 AddGenerator.class,
-                FindGenerator.class,
+                QueryGenerator.class,
                 AddOne.class,
                 AddList.class,
                 FindById.class,

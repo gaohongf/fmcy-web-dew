@@ -101,18 +101,9 @@ public abstract class XServiceImpl<M extends BaseMapper<P>, P, D> implements XSe
         return allTableColumn != null ? allTableColumn : (allTableColumn = getTableColumnMap().values().stream().map(ColumnCache::getColumn).toArray(String[]::new));
     }
 
+    @Override
     public String[] columns(Predicate<String> filter) {
         return Arrays.stream(allTableColumn()).filter(filter).toArray(String[]::new);
-    }
-
-    public String[] columnsExcept(String... columns) {
-        List<String> columnList = Arrays.stream(columns).toList();
-        return columns(s -> !columnList.contains(s));
-    }
-
-    @Override
-    public String[] columns() {
-        return columns(s -> true);
     }
 
     private String[] columnsToColumnSelects(String... columns) {
@@ -230,19 +221,17 @@ public abstract class XServiceImpl<M extends BaseMapper<P>, P, D> implements XSe
                 if (configure != null) {
                     boolean like = configure.isLike();
                     boolean asc = configure.isAsc();
-                    boolean desc = configure.isDesc();
                     QueryScope<?> scope = configure.getScope();
                     wrapper.like(like && o != null, column, o)
                             .eq(!like && scope == null && o != null, column, o)
                             .orderByAsc(asc, column)
-                            .orderByDesc(desc && !asc, column);
-                    if (scope != null) {
-                        wrapper.gt(scope.isGt(), column, scope.getLowerLimit())
-                                .ge(scope.isGe(), column, scope.getLowerLimit())
-                                .le(scope.isLe(), column, scope.getUpperLimit())
-                                .lt(scope.isLt(), column, scope.getUpperLimit());
-                    }
-                }
+                            .orderByDesc(configure.isDesc() && !asc, column);
+                    if (scope != null) wrapper
+                            .gt(scope.isGt(), column, scope.getLowerLimit())
+                            .ge(scope.isGe(), column, scope.getLowerLimit())
+                            .le(scope.isLe(), column, scope.getUpperLimit())
+                            .lt(scope.isLt(), column, scope.getUpperLimit());
+                } else wrapper.eq(o != null, column, o);
             } catch (IllegalAccessException ignored) {
             }
         }));
@@ -306,9 +295,6 @@ public abstract class XServiceImpl<M extends BaseMapper<P>, P, D> implements XSe
                 )).map(getDemandHandlerPToD()::mapAll)
                 .orElseGet(ArrayList::new);
     }
-
-    ;
-
 
     @Override
     @Transactional

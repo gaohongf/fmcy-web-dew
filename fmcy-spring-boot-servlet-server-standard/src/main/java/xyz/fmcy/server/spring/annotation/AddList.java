@@ -14,7 +14,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface AddList {
-    Class<? extends Serializable> insertClass();
+    Class<? extends Serializable> insertType() default Serializable.class;
 
     RequestMapping mapping() default @RequestMapping(path = "/add/rows", method = RequestMethod.POST);
 

@@ -14,7 +14,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface UpdateById {
-    Class<? extends Serializable> updaterClass();
+    Class<? extends Serializable> updaterClass() default Serializable.class;
 
     RequestMapping mapping() default @RequestMapping(path = "/update", method = RequestMethod.POST);
 

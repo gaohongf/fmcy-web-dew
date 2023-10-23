@@ -1,8 +1,10 @@
 package xyz.fmcy.server.database;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * XService对IService的功能进行了收缩,排除掉了一些不常用的功能
@@ -13,10 +15,30 @@ import java.util.List;
 public interface XService<D> {
 
     Class<D> resultclass();
+
+    /**
+     * 获取列名
+     *
+     * @param filter 过滤条件
+     */
+    String[] columns(Predicate<String> filter);
+
     /**
      * 获取全部列名
      */
-    String[] columns();
+    default String[] columns() {
+        return columns(column -> true);
+    }
+
+    /**
+     * 排除几个列名
+     *
+     * @param columns 列名
+     */
+
+    default String[] columnsExcept(String... columns) {
+        return columns(Predicate.not(Arrays.stream(columns).toList()::contains));
+    }
 
     default D findById(Serializable id) {
         return findById(id, columns());
@@ -55,6 +77,7 @@ public interface XService<D> {
     default Long count(D template) {
         return count(template, columns());
     }
+
     Long count(D template, String... columns);
 
     default List<D> findList(D template, QueryConfigure... configures) {
