@@ -125,12 +125,8 @@ public class Result<T> implements Serializable {
         return ok(code, null);
     }
 
-    public static <T> Result<T> ok(ResultCode code, Message... message) {
-        return ok(code, null, message);
-    }
-
     public static <T> Result<T> ok(ResultCode code) {
-        return ok(code, new Message[0]);
+        return ok(code,null, new Message[0]);
     }
 
     public static <T> Result<T> ok(int code, T data, Message... messages) {

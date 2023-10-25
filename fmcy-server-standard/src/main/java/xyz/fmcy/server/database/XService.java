@@ -52,7 +52,7 @@ public interface XService<D> {
 
     D find(D entity, String... columns);
 
-    default VPage<D> findPage(Long current, Long size, D template, QueryConfigure[] configures) {
+    default VPage<D> findPage(Long current, Long size, D template, QueryConfigure... configures) {
         return findPage(current, size, template, configures, columns());
     }
 
@@ -74,12 +74,7 @@ public interface XService<D> {
         return count(null);
     }
 
-    default Long count(D template) {
-        return count(template, columns());
-    }
-
-    Long count(D template, String... columns);
-
+    Long count(D template);
     default List<D> findList(D template, QueryConfigure... configures) {
         return findList(template, configures, columns());
     }

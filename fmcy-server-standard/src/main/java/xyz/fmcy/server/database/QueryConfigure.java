@@ -2,6 +2,7 @@ package xyz.fmcy.server.database;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.List;
 import java.util.Objects;
 
 public final class QueryConfigure implements Serializable {
@@ -11,17 +12,26 @@ public final class QueryConfigure implements Serializable {
     private boolean like;
     private boolean asc;
     private boolean desc;
-    private QueryScope<?> scope;
+    private List<QueryScope<Object>> scope;
+    private List<?> nes;
+
+    public List<?> getNes() {
+        return nes;
+    }
+
+    public void setNes(List<?> nes) {
+        this.nes = nes;
+    }
 
     public String getFieldName() {
         return fieldName;
     }
 
-    public void setScope(QueryScope<?> scope) {
+    public void setScope(List<QueryScope<Object>> scope) {
         this.scope = scope;
     }
 
-    public QueryScope<?> getScope() {
+    public List<QueryScope<Object>> getScope() {
         return scope;
     }
 
@@ -61,11 +71,16 @@ public final class QueryConfigure implements Serializable {
         return of(like, fieldName, asc, desc, null);
     }
 
-    private static QueryConfigure of(boolean like, String fieldName, boolean asc, boolean desc, QueryScope<?> scope) {
-        return builder().fieldName(fieldName).asc(asc).like(like).desc(desc).scope(scope).build();
+    private static QueryConfigure of(boolean like, String fieldName, boolean asc, boolean desc, List<QueryScope<Object>> scope) {
+        return of(like, fieldName, asc, desc, scope, null);
     }
 
-    public static QueryConfigure setAttribute(String fieldName, QueryAttribute<?> attribute) {
+    private static QueryConfigure of(boolean like, String fieldName, boolean asc, boolean desc, List<QueryScope<Object>> scope, List<Object> nes) {
+        return builder().fieldName(fieldName).asc(asc).like(like).desc(desc).scope(scope).ne(nes).build();
+    }
+
+
+    public static QueryConfigure setAttribute(String fieldName, QueryAttribute<Object> attribute) {
         QueryConfigureBuilder builder = builder().fieldName(fieldName);
         if (attribute != null) {
             builder.like(attribute.isLike());
@@ -75,6 +90,7 @@ public final class QueryConfigure implements Serializable {
             if (!attribute.isAsc() && attribute.isDesc()) {
                 builder.desc(true);
             }
+            builder.ne(attribute.getNe());
             builder.scope(attribute.getScope());
         }
         return builder.build();
@@ -82,6 +98,10 @@ public final class QueryConfigure implements Serializable {
 
     public static QueryConfigure like(String fieldName) {
         return of(true, fieldName, false, false);
+    }
+
+    public static QueryConfigure ne(String fieldName, List<Object> nes) {
+        return of(false, fieldName, false, false, null, nes);
     }
 
     public static QueryConfigure asc(String fieldName) {
@@ -100,7 +120,7 @@ public final class QueryConfigure implements Serializable {
         return of(true, fieldName, false, true);
     }
 
-    public static QueryConfigure scope(String fieldName, QueryScope<?> scope) {
+    public static QueryConfigure scope(String fieldName, List<QueryScope<Object>> scope) {
         return of(false, fieldName, false, false, scope);
     }
 
@@ -109,12 +129,12 @@ public final class QueryConfigure implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         QueryConfigure that = (QueryConfigure) o;
-        return like == that.like && asc == that.asc && desc == that.desc && Objects.equals(fieldName, that.fieldName) && Objects.equals(scope, that.scope);
+        return like == that.like && asc == that.asc && desc == that.desc && Objects.equals(fieldName, that.fieldName) && Objects.equals(scope, that.scope) && Objects.equals(nes, that.nes);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(fieldName, like, asc, desc, scope);
+        return Objects.hash(fieldName, like, asc, desc, scope, nes);
     }
 
     private static class QueryConfigureBuilder {
@@ -139,13 +159,18 @@ public final class QueryConfigure implements Serializable {
             return this;
         }
 
-        public QueryConfigureBuilder scope(QueryScope<?> scope) {
+        public QueryConfigureBuilder scope(List<QueryScope<Object>> scope) {
             queryConfigure.scope = scope;
             return this;
         }
 
         public QueryConfigureBuilder fieldName(String fieldName) {
             queryConfigure.fieldName = fieldName;
+            return this;
+        }
+
+        public QueryConfigureBuilder ne(List<?> nes) {
+            queryConfigure.nes = nes;
             return this;
         }
 

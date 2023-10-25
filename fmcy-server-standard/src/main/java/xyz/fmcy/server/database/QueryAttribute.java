@@ -2,6 +2,8 @@ package xyz.fmcy.server.database;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class QueryAttribute<T> implements Serializable {
@@ -11,17 +13,27 @@ public class QueryAttribute<T> implements Serializable {
     private boolean like;
     private boolean asc;
     private boolean desc;
-    private QueryScope<T> scope;
+    private List<T> nes;
+    private List<QueryScope<T>> scope;
 
     public QueryAttribute() {
     }
 
-    public QueryAttribute(T value, boolean like, boolean asc, boolean desc, QueryScope<T> scope) {
+    public QueryAttribute(T value, boolean like, boolean asc, boolean desc, List<T> nes, List<QueryScope<T>> scope) {
         this.value = value;
         this.like = like;
         this.asc = asc;
         this.desc = desc;
+        this.nes = nes;
         this.scope = scope;
+    }
+
+    public void setNe(List<T> nes) {
+        this.nes = nes;
+    }
+
+    public List<T> getNe() {
+        return nes;
     }
 
     @Override
@@ -29,20 +41,33 @@ public class QueryAttribute<T> implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         QueryAttribute<?> that = (QueryAttribute<?>) o;
-        return like == that.like && asc == that.asc && desc == that.desc && Objects.equals(value, that.value) && Objects.equals(scope, that.scope);
+        return like == that.like && asc == that.asc && desc == that.desc && Objects.equals(value, that.value) && Objects.equals(nes, that.nes) && Objects.equals(scope, that.scope);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(value, like, asc, desc, scope);
+        return Objects.hash(value, like, asc, desc, nes, scope);
     }
 
-    public QueryScope<T> getScope() {
+    public List<QueryScope<T>> getScope() {
         return scope;
     }
 
+    public void setScopes(List<QueryScope<T>> scope) {
+        if (this.scope != null) {
+            this.scope.addAll(scope);
+        } else {
+            this.scope = new ArrayList<>(scope);
+        }
+
+    }
+
     public void setScope(QueryScope<T> scope) {
-        this.scope = scope;
+        if (this.scope != null) {
+            this.scope.add(scope);
+        } else {
+            this.scope = new ArrayList<>(List.of(scope));
+        }
     }
 
     public T getValue() {
@@ -84,6 +109,7 @@ public class QueryAttribute<T> implements Serializable {
                 ", like=" + like +
                 ", asc=" + asc +
                 ", desc=" + desc +
+                ", nes=" + nes +
                 ", scope=" + scope +
                 '}';
     }

@@ -1,6 +1,9 @@
 package xyz.fmcy.mybatisplus.util.service;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.conditions.interfaces.Compare;
+import com.baomidou.mybatisplus.core.conditions.interfaces.Func;
+import com.baomidou.mybatisplus.core.conditions.interfaces.Nested;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
@@ -81,12 +84,16 @@ public abstract class XServiceImpl<M extends BaseMapper<P>, P, D> implements XSe
 
     @Override
     public boolean deleteById(D entity) {
-        return SqlHelper.retBool(getBaseMapper().deleteById(getDemandHandlerDToP().wiseMapping(entity)));
+        return SqlHelper.retBool(
+                getBaseMapper().deleteById(getDemandHandlerDToP().wiseMapping(entity))
+        );
     }
 
     @Override
     public boolean updateById(D entity) {
-        return SqlHelper.retBool(getBaseMapper().updateById(getDemandHandlerDToP().wiseMapping(entity)));
+        return SqlHelper.retBool(
+                getBaseMapper().updateById(getDemandHandlerDToP().wiseMapping(entity))
+        );
     }
 
     private TableInfo getTableInfo() {
@@ -113,17 +120,18 @@ public abstract class XServiceImpl<M extends BaseMapper<P>, P, D> implements XSe
 
     @Override
     public D findById(Serializable id, String... columns) {
-        QueryWrapper<P> query = Wrappers.query();
-        query.eq(getTableInfo().getKeyColumn(), id);
-        query.select(columnsToColumnSelects(columns));
-        return getDemandHandlerPToD().wiseMapping(getBaseMapper().selectOne(query));
+        return Optional.ofNullable(getBaseMapper().selectOne(Wrappers.<P>query()
+                        .eq(getTableInfo().getKeyColumn(), id)
+                        .select(columnsToColumnSelects(columns))
+                )).map(getDemandHandlerPToD()::wiseMapping)
+                .orElse(null);
     }
 
     @Override
     public D find(D entity, String... columns) {
-        QueryWrapper<P> wrapper = loadWrapper(Wrappers.query(), entity);
-        wrapper.select(columnsToColumnSelects(columns));
-        return getDemandHandlerPToD().wiseMapping(getBaseMapper().selectOne(wrapper));
+        return Optional.ofNullable(getBaseMapper().selectOne(loadWrapper(Wrappers.query(), entity).select(columnsToColumnSelects(columns))))
+                .map(getDemandHandlerPToD()::wiseMapping)
+                .orElse(null);
     }
 
     @Override
@@ -161,10 +169,8 @@ public abstract class XServiceImpl<M extends BaseMapper<P>, P, D> implements XSe
     }
 
     @Override
-    public Long count(D template, String... columns) {
-        QueryWrapper<P> wrapper = loadWrapper(Wrappers.query(), template);
-        wrapper.select(columnsToColumnSelects(columns));
-        return getBaseMapper().selectCount(wrapper);
+    public Long count(D template) {
+        return getBaseMapper().selectCount(loadWrapper(Wrappers.query(), template));
     }
 
     @Override
@@ -202,14 +208,18 @@ public abstract class XServiceImpl<M extends BaseMapper<P>, P, D> implements XSe
         } else if (wrapper instanceof UpdateWrapper<?> updateWrapper) {
             return (W) interpretUpdateTemplate((UpdateWrapper<P>) updateWrapper, template);
         } else {
+            if (wrapper instanceof Compare) {
+                interpretCompareTemplate((Compare<W, String>) wrapper, template, configures);
+            }
+            if (wrapper instanceof Func) {
+                interpretFuncTemplate((Func<W, String>) wrapper, template, configures);
+            }
             return wrapper;
         }
     }
 
-
-    private QueryWrapper<P> interpretQueryTemplate(QueryWrapper<P> wrapper, D template, QueryConfigure... configures) {
-        Map<String, QueryConfigure> fieldConfigs = Arrays.stream(configures)
-                .collect(Collectors.toMap(QueryConfigure::getFieldName, configure -> configure));
+    private <W extends Wrapper<P>> void interpretCompareTemplate(Compare<W, String> compare, D template, QueryConfigure... configures) {
+        Map<String, QueryConfigure> fieldConfigs = Arrays.stream(configures).collect(Collectors.toMap(QueryConfigure::getFieldName, configure -> configure));
         interpretTemplate(template, ((p, field) -> {
             try {
                 field.setAccessible(true);
@@ -218,20 +228,72 @@ public abstract class XServiceImpl<M extends BaseMapper<P>, P, D> implements XSe
                 ColumnCache columnCache = getTableColumnMap().get(LambdaUtils.formatKey(name));
                 String column = columnCache.getColumn();
                 QueryConfigure configure = fieldConfigs.get(name);
-                if (configure != null) {
-                    boolean like = configure.isLike();
-                    boolean asc = configure.isAsc();
-                    QueryScope<?> scope = configure.getScope();
-                    wrapper.like(like && o != null, column, o)
-                            .eq(!like && scope == null && o != null, column, o)
-                            .orderByAsc(asc, column)
-                            .orderByDesc(configure.isDesc() && !asc, column);
-                    if (scope != null) wrapper
-                            .gt(scope.isGt(), column, scope.getLowerLimit())
-                            .ge(scope.isGe(), column, scope.getLowerLimit())
-                            .le(scope.isLe(), column, scope.getUpperLimit())
-                            .lt(scope.isLt(), column, scope.getUpperLimit());
-                } else wrapper.eq(o != null, column, o);
+                loadCompare(compare, o, column, configure);
+            } catch (IllegalAccessException ignored) {
+            }
+        }));
+    }
+
+    private <W> void interpretFuncTemplate(Func<W, String> func, D template, QueryConfigure... configures) {
+        Map<String, QueryConfigure> fieldConfigs = Arrays.stream(configures).collect(Collectors.toMap(QueryConfigure::getFieldName, configure -> configure));
+        interpretTemplate(template, ((p, field) -> {
+            String name = field.getName();
+            ColumnCache columnCache = getTableColumnMap().get(LambdaUtils.formatKey(name));
+            String column = columnCache.getColumn();
+            QueryConfigure configure = fieldConfigs.get(name);
+            loadFunc(func, column, configure);
+        }));
+    }
+
+    protected void loadFunc(Func<?, String> func, String column, QueryConfigure configure) {
+        if (configure != null) {
+            List<?> nes = Optional.ofNullable(configure.getNes()).orElseGet(ArrayList::new);
+            func.notIn(!nes.isEmpty(), column, nes);
+            if (configure.isAsc()) {
+                func.orderByAsc(column);
+            } else if (configure.isDesc()) {
+                func.orderByDesc(column);
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <W extends Wrapper<P>, N extends Nested<N, N> & Compare<W, String>> void loadCompare(
+            Compare<W, String> compare, Object o, String column, QueryConfigure configure
+    ) {
+        if (configure != null) {
+            boolean like = configure.isLike();
+            compare.like(like && o != null, column, o);
+            List<QueryScope<Object>> scopes = configure.getScope();
+            if (scopes != null) {
+                Nested<N, N> nested = compare instanceof Nested ? (Nested<N, N>) compare : null;
+                if (nested != null) {
+                    // ??? and (value > ? and value < ?) or (value > ? and value < ?) and ???
+                    nested.and((n) -> scopes.forEach((scope) -> n.or(w -> loadScope(scope, w, column))));
+                } else if (!scopes.isEmpty()) loadScope(scopes.get(0), compare, column);
+            } else compare.eq(!like && o != null, column, o);
+        } else compare.eq(o != null, column, o);
+    }
+
+    private <W extends Wrapper<P>> void loadScope(QueryScope<Object> scope, Compare<W, String> compare, String column) {
+        compare.gt(scope.isGt(), column, scope.getLowerLimit());
+        compare.ge(scope.isGe(), column, scope.getLowerLimit());
+        compare.le(scope.isLe(), column, scope.getUpperLimit());
+        compare.lt(scope.isLt(), column, scope.getUpperLimit());
+    }
+
+    private QueryWrapper<P> interpretQueryTemplate(QueryWrapper<P> wrapper, D template, QueryConfigure... configures) {
+        Map<String, QueryConfigure> fieldConfigs = Arrays.stream(configures).collect(Collectors.toMap(QueryConfigure::getFieldName, configure -> configure));
+        interpretTemplate(template, ((p, field) -> {
+            try {
+                field.setAccessible(true);
+                Object o = field.get(p);
+                String name = field.getName();
+                ColumnCache columnCache = getTableColumnMap().get(LambdaUtils.formatKey(name));
+                String column = columnCache.getColumn();
+                QueryConfigure configure = fieldConfigs.get(name);
+                loadCompare(wrapper, o, column, configure);
+                loadFunc(wrapper, column, configure);
             } catch (IllegalAccessException ignored) {
             }
         }));
@@ -251,7 +313,7 @@ public abstract class XServiceImpl<M extends BaseMapper<P>, P, D> implements XSe
         return wrapper;
     }
 
-    private void interpretTemplate(D template, BiConsumer<P, Field> consumer) {
+    protected void interpretTemplate(D template, BiConsumer<P, Field> consumer) {
         if (template == null) return;
         DemandHandler<D, P> demandHandlerDToP = getDemandHandlerDToP();
         Class<P> targetClass = demandHandlerDToP.getTargetClass();

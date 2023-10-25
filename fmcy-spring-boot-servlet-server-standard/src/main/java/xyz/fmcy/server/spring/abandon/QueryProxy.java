@@ -13,6 +13,7 @@ import java.util.Map;
  */
 public class QueryProxy extends HashMap<String, QueryAttribute<String>> implements QueryConfiguration, Serializable {
     @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public QueryConfigure[] configure() {
         return this.entrySet()
                 .stream()
@@ -20,7 +21,7 @@ public class QueryProxy extends HashMap<String, QueryAttribute<String>> implemen
                     QueryAttribute<String> value = entry.getValue();
                     return Map.entry(entry.getKey(), value);
                 })
-                .map(entry -> QueryConfigure.setAttribute(entry.getKey(), entry.getValue()))
+                .map(entry -> QueryConfigure.setAttribute(entry.getKey(), (QueryAttribute) entry.getValue()))
                 .toArray(QueryConfigure[]::new);
     }
 }
